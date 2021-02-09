@@ -81,6 +81,7 @@ public class PropertiesTest {
             value = devda.extractString();
             Assert.assertEquals("default", value);
         } catch (DevFailed e) {
+            System.out.println("Failed, because: ");
             DevFailedUtils.printDevFailed(e);
             throw e;
         }
@@ -88,31 +89,37 @@ public class PropertiesTest {
 
     @Test
     public void testClassProperty() throws DevFailed {
-        final Database db = ApiUtil.get_db_obj();
-        final DbDatum[] dbDatum = new DbDatum[1];
+        try {
+            final Database db = ApiUtil.get_db_obj();
+            final DbDatum[] dbDatum = new DbDatum[1];
 
-        final Double dd = new Double(Math.random());
-        final String propClassValue = dd.toString();
-        final String propClassName = "myClassProp";
+            final Double dd = new Double(Math.random());
+            final String propClassValue = dd.toString();
+            final String propClassName = "myClassProp";
 
-        dbDatum[0] = new DbDatum(propClassName, propClassValue);
+            dbDatum[0] = new DbDatum(propClassName, propClassValue);
 
-        db.put_class_property(JTangoTest.class.getCanonicalName(), dbDatum);
+            db.put_class_property(JTangoTest.class.getCanonicalName(), dbDatum);
 
-        final DeviceProxy dev = getDeviceProxy();
+            final DeviceProxy dev = getDeviceProxy();
 
-        DeviceData devdaClass = dev.command_inout("getMyClassProperty");
+            DeviceData devdaClass = dev.command_inout("getMyClassProperty");
 
-        String[] valueClass = devdaClass.extractStringArray();
+            String[] valueClass = devdaClass.extractStringArray();
 
-        Assert.assertArrayEquals(new String[]{propClassValue}, valueClass);
+            Assert.assertArrayEquals(new String[]{propClassValue}, valueClass);
 
-        db.delete_class_property(JTangoTest.class.getCanonicalName(), propClassName);
+            db.delete_class_property(JTangoTest.class.getCanonicalName(), propClassName);
 
-        dev.command_inout("Init");
-        devdaClass = dev.command_inout("getMyClassProperty");
-        valueClass = devdaClass.extractStringArray();
-        Assert.assertArrayEquals(new String[]{"classDefault"}, valueClass);
+            dev.command_inout("Init");
+            devdaClass = dev.command_inout("getMyClassProperty");
+            valueClass = devdaClass.extractStringArray();
+            Assert.assertArrayEquals(new String[]{"classDefault"}, valueClass);
+        } catch (DevFailed e) {
+            System.out.println("Failed, because: ");
+            DevFailedUtils.printDevFailed(e);
+            Assert.fail();
+        }
     }
 
     @Test

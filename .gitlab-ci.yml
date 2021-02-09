@@ -1,0 +1,115 @@
+# See https://docs.gitlab.com/ce/ci/yaml/README.html for the documentation
+image: docker/compose:alpine-1.28.2
+
+variables: &variables
+#  TANGO_HOST: tangocs__tango-cs:10000
+#  MYSQL_HOST: tangocs-mysql:3306
+#  MYSQL_USER: tango
+#  MYSQL_PASSWORD: tango
+#  MYSQL_DATABASE: tango
+  MYSQL_ROOT_PASSWORD: root
+
+services:
+  - name: tangocs/mysql:9.2.2
+#TRAVIS_TAG
+#TRAVIS_BRANCH
+#SONAR_TOKEN
+
+stages:
+  - test
+  - deploy
+
+
+.job-template: &job-template
+  script:
+    - ping tangocs__mysql
+
+test-java11:
+#  image: maven:3.6.3-openjdk-11-slim
+  stage: test
+  <<: *job-template
+  variables:
+    <<: *variables
+
+  cache:
+    paths:
+      - '$HOME/.m2/repository'
+      - tagret
+
+#test-java8:
+#  stage: test
+#  <<: *job-template
+#  variables:
+#    <<: *variables
+#    JAVA_IMAGE: maven:3.6-jdk-8-slim
+#
+#  cache:
+#    paths:
+#      - '$HOME/.m2/repository'
+#      - tagret
+
+#test-java8:
+#  image: maven:3.6-jdk-8-slim
+#  stage: test
+#  before_script:
+#    - docker-compose up -d
+#    #TODO wait-for-it
+#    - sleep 30
+#    - docker ps
+#  script:
+#    - mvn clean install -D"$TANGO_HOST"
+#  cache:
+#    paths:
+#      - '$HOME/.m2/repository'
+#      - tagret
+
+#deploy-to-sonar:
+#  image: maven:3.6.3-openjdk-11-slim
+#  stage: deploy
+#  script:
+#    - mvn clean verify sonar:sonar -Ptravis
+# TODO rewrite to gitlab
+#  addons:
+#    sonarcloud:
+#      organization: "tango-controls"
+#      token: ${SONAR_TOKEN}
+
+#deploy-to-codacy:
+#  image: maven:3.6-jdk-8-slim
+#  stage: deploy
+#  script:
+#    - mavn clean install -Ptravis
+#    - mvn com.gavinmogan:codacy-maven-plugin:coverage -Ptravis
+
+#deploy-to-codcov:
+#  image: maven:3.6-jdk-8-slim
+#  stage: deploy
+#  script:
+#    - mvn clean install -Ptravis
+#    - bash <(curl -s https://codecov.io/bash)
+
+#deploy-artifacts:
+#  image: maven:3.6-jdk-8-slim
+#  before_script:
+#    - cd parent
+#    - mvn versions:set versions:update-child-modules -DnewVersion=${TRAVIS_BRANCH} -DprocessAllModule -DgenerateBackupPoms=false -Prelease
+#    - cd ..
+#    - mvn install -Dmaven.test.skip=true
+#  script:
+#    - set -e
+#    - .travis/maven_deploy.sh
+
+# TODO rewrite to gitlab
+#deploy:
+#  - provider: script
+#    script: bash .travis/maven_deploy.sh
+#    skip_cleanup: true
+#    on:
+#      tags: true
+#  - provider: releases
+#    file: assembly/target/JTango-${TRAVIS_TAG}.jar
+#    api_key: $GITHUB_TOKEN
+#    skip_cleanup: true
+#    draft: true
+#    on:
+#      tags: true

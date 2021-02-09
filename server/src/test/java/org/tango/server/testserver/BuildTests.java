@@ -83,7 +83,8 @@ public class BuildTests {
         startDetachedNoDb(BadServer5.class);
     }
 
-    @Test(timeout = 3000)
+//    @Test(timeout = 3000)
+    @Test
     public void testInit() throws DevFailed {
         startDetachedNoDb(InitErrorServer.class);
         final DeviceProxy dev = new DeviceProxy(deviceName);

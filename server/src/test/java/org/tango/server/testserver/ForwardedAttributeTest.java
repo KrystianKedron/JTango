@@ -31,9 +31,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.net.ServerSocket;
+import java.util.Arrays;
 import java.util.Scanner;
 
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.tango.server.Constants;
@@ -44,6 +46,7 @@ import fr.esrf.Tango.DevFailed;
 import fr.esrf.TangoApi.AttributeInfoEx;
 import fr.soleil.tango.clientapi.TangoAttribute;
 import fr.soleil.tango.clientapi.TangoCommand;
+import org.tango.utils.DevFailedUtils;
 
 /**
  * TODO: test polling
@@ -128,13 +131,19 @@ public class ForwardedAttributeTest {
 
     @Test
     public void readWriteForwaded() throws DevFailed {
-        final TangoAttribute attr = new TangoAttribute(deviceName + "/testfowarded");
-        final TangoAttribute attrRoot = new TangoAttribute(deviceNameRoot + "/doubleScalar");
-        attr.write(2.3);
-        final double result = attr.read(double.class);
-        final double resultRoot = attrRoot.read(double.class);
-        assertThat(result, equalTo(2.3));
-        assertThat(resultRoot, equalTo(2.3));
+        try {
+            final TangoAttribute attr = new TangoAttribute(deviceName + "/testfowarded");
+            final TangoAttribute attrRoot = new TangoAttribute(deviceNameRoot + "/doubleScalar");
+            attr.write(2.3);
+            final double result = attr.read(double.class);
+            final double resultRoot = attrRoot.read(double.class);
+            assertThat(result, equalTo(2.3));
+            assertThat(resultRoot, equalTo(2.3));
+        } catch (DevFailed e) {
+            System.out.println("Failed, because: ");
+            DevFailedUtils.printDevFailed(e);
+            Assert.fail();
+        }
     }
 
     @Test
