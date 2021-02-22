@@ -2,72 +2,74 @@
 image: docker/compose:alpine-1.28.2
 
 variables: &variables
-#  TANGO_HOST: tangocs__tango-cs:10000
-#  MYSQL_HOST: tangocs-mysql:3306
-#  MYSQL_USER: tango
-#  MYSQL_PASSWORD: tango
-#  MYSQL_DATABASE: tango
-  MYSQL_ROOT_PASSWORD: root
+  FF_NETWORK_PER_BUILD: 1
+  TANGO_HOST: tango_databaseds:10000
 
 services:
   - name: tangocs/mysql:9.2.2
-#TRAVIS_TAG
-#TRAVIS_BRANCH
-#SONAR_TOKEN
+    alias: tango_mysql
+    entrypoint:
+      - env
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_INITDB_SKIP_TZINFO=1
+      - /usr/local/bin/docker-entrypoint.sh
+    command:
+      - mysqld
+      - --sql-mode=
+      - --innodb=OFF
+      - --default-storage-engine=MyISAM
+  - name: tangocs/tango-cs:9
+    alias: tango_databaseds
+    entrypoint:
+      - env
+      - MYSQL_HOST=tango_mysql:3306
+      - MYSQL_USER=tango
+      - MYSQL_PASSWORD=tango
+      - MYSQL_DATABASE=tango
+      - /usr/local/bin/wait-for-it.sh
+      - tango_mysql:3306
+      - --timeout=30
+      - --strict
+      - --
+    command:
+      - /usr/bin/supervisord
+      - -c
+      - /etc/supervisord.conf
 
 stages:
   - test
+  - verify
   - deploy
 
 
 .job-template: &job-template
   script:
-    - ping tangocs__mysql
+    - mvn clean install
+  artifacts:
+    paths:
+      - assembly/target/*.jar
 
 test-java11:
-#  image: maven:3.6.3-openjdk-11-slim
+  image: maven:3.6.3-openjdk-11-slim
   stage: test
   <<: *job-template
   variables:
     <<: *variables
 
-  cache:
-    paths:
-      - '$HOME/.m2/repository'
-      - tagret
+test-java8:
+  image: maven:3.6-jdk-8-slim
+  stage: test
+  <<: *job-template
+  variables:
+    <<: *variables
 
-#test-java8:
-#  stage: test
-#  <<: *job-template
-#  variables:
-#    <<: *variables
-#    JAVA_IMAGE: maven:3.6-jdk-8-slim
-#
-#  cache:
-#    paths:
-#      - '$HOME/.m2/repository'
-#      - tagret
-
-#test-java8:
-#  image: maven:3.6-jdk-8-slim
-#  stage: test
-#  before_script:
-#    - docker-compose up -d
-#    #TODO wait-for-it
-#    - sleep 30
-#    - docker ps
-#  script:
-#    - mvn clean install -D"$TANGO_HOST"
-#  cache:
-#    paths:
-#      - '$HOME/.m2/repository'
-#      - tagret
 
 #deploy-to-sonar:
 #  image: maven:3.6.3-openjdk-11-slim
-#  stage: deploy
+#  stage: verify
 #  script:
 #    - mvn clean verify sonar:sonar -Ptravis
+
 # TODO rewrite to gitlab
 #  addons:
 #    sonarcloud:
@@ -76,14 +78,14 @@ test-java11:
 
 #deploy-to-codacy:
 #  image: maven:3.6-jdk-8-slim
-#  stage: deploy
+#  stage: verify
 #  script:
 #    - mavn clean install -Ptravis
 #    - mvn com.gavinmogan:codacy-maven-plugin:coverage -Ptravis
 
 #deploy-to-codcov:
 #  image: maven:3.6-jdk-8-slim
-#  stage: deploy
+#  stage: verify
 #  script:
 #    - mvn clean install -Ptravis
 #    - bash <(curl -s https://codecov.io/bash)
