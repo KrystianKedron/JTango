@@ -4,6 +4,7 @@ image: docker/compose:alpine-1.28.2
 variables: &variables
   FF_NETWORK_PER_BUILD: 1
   TANGO_HOST: tango_databaseds:10000
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/JTango"
 
 services:
   - name: tangocs/mysql:9.2.2
@@ -37,17 +38,34 @@ services:
       - /etc/supervisord.conf
 
 stages:
+# verification
   - test
   - verify
+#  release
+  - build
+  - upload
   - deploy
 
 
 .job-template: &job-template
   script:
     - mvn clean install
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+
+.release-job-template: &release-job-template
+  script:
+    - mvn clean install -DskipTests
+    # Mark the build artifact(jar) with proper JAVA_VERSION
+    - ls assembly/target/*.jar | cut -f 1,2,3 -d '.' | xargs -Ifile mv file.jar file-${JAVA_VERSION}.jar
+    # Create JTANGO version env variable (use in upload, deploy stage)
+    - echo "JTANGO_${JAVA_VERSION}_VERSION=$(ls *.jar | cut -f 1,2,3 -d '.')" > version.env
   artifacts:
     paths:
       - assembly/target/*.jar
+    reports:
+      dotenv: version.env
 
 test-java11:
   image: maven:3.6.3-openjdk-11-slim
@@ -62,7 +80,6 @@ test-java8:
   <<: *job-template
   variables:
     <<: *variables
-
 
 #deploy-to-sonar:
 #  image: maven:3.6.3-openjdk-11-slim
@@ -80,7 +97,7 @@ test-java8:
 #  image: maven:3.6-jdk-8-slim
 #  stage: verify
 #  script:
-#    - mavn clean install -Ptravis
+#    - mavn clean install -Pverify
 #    - mvn com.gavinmogan:codacy-maven-plugin:coverage -Pverify
 
 #deploy-to-codcov:
@@ -100,6 +117,83 @@ test-java8:
 #  script:
 #    - set -e
 #    - .travis/maven_deploy.sh
+
+#build:
+#  stage: build
+#  image: alpine:latest
+#  rules:
+#    - if: $CI_COMMIT_TAG
+#  script:
+#    - mkdir bin
+#    - echo "Mock binary for ${DARWIN_AMD64_BINARY}" > bin/${DARWIN_AMD64_BINARY}
+#    - echo "Mock binary for ${LINUX_AMD64_BINARY}" > bin/${LINUX_AMD64_BINARY}
+#  artifacts:
+#    paths:
+#      - bin/
+
+release:build:openjdk-11:
+  image: maven:3.6.3-openjdk-11-slim
+  stage: build
+  <<: *release-job-template
+  variables:
+    <<: *variables
+    JAVA_VERSION: openjdk_11
+  only:
+    - tags
+
+release:build:openjdk-8:
+  image: maven:3.6.3-openjdk-11-slim
+  stage: build
+  <<: *release-job-template
+  variables:
+    <<: *variables
+    JAVA_VERSION: openjdk_8
+  only:
+    - tags
+
+release:upload:
+  stage: upload
+  image: curlimages/curl:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - >
+      echo ${JTANGO_openjdk11_VERSION}
+      echo ${JTANGO_openjdk8_VERSION}
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${JTANGO_openjdk11_VERSION} ${PACKAGE_REGISTRY_URL}/${CI_COMMIT_TAG}/${CI_COMMIT_TAG}/${JTANGO_openjdk11_VERSION}
+      curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file ${JTANGO_openjdk8_VERSION} ${PACKAGE_REGISTRY_URL}/${CI_COMMIT_TAG}/${CI_COMMIT_TAG}/${JTANGO_openjdk8_VERSION}
+
+release:deploy:
+  stage: deploy
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - >
+      release-cli create --name "JTango $CI_COMMIT_TAG" --tag-name $CI_COMMIT_TAG --description ${CI_COMMIT_MESSAGE} \
+        --assets-link "{\"name\":\"JTango-${CI_COMMIT_TAG}-openjdk11\",\"url\":\"${PACKAGE_REGISTRY_URL}/${CI_COMMIT_TAG}/${CI_COMMIT_TAG}/${JTANGO_openjdk11_VERSION}"}" \
+        --assets-link "{\"name\":\"JTango-${CI_COMMIT_TAG}-openjdk8\",\"url\":\"${PACKAGE_REGISTRY_URL}/${CI_COMMIT_TAG}/${CI_COMMIT_TAG}/${JTANGO_openjdk8_VERSION}\"}"
+
+
+#release:
+#  stage: release
+#  image: registry.gitlab.com/gitlab-org/release-cli
+#  # We recommend the use of `rules` to prevent these pipelines
+#  # from running. See the notes section below for details.
+#  rules:
+#    - if: $CI_COMMIT_TAG
+#  script:
+#    - >
+#      echo "Release" ${CI_COMMIT_TAG}
+
+#      .travis/maven_deploy.sh
+#      release-cli create --name release-branch-$CI_JOB_ID --description release-branch-$CI_COMMIT_REF_NAME-$CI_JOB_ID
+#      --tag-name job-$CI_JOB_ID --ref $CI_COMMIT_SHA
+#      --assets-link '{"name":"Asset1","url":"https://<domain>/some/location/1","link_type":"other","filepath":"xzy"}'
+#      --assets-link '{"name":"Asset2","url":"https://<domain>/some/location/2"}'
+#      --milestone "v1.0.0" --milestone "v1.0.0-rc"
+#      --released-at "2020-06-30T07:00:00Z"
+
 
 # TODO rewrite to gitlab
 #deploy:
