@@ -68,7 +68,7 @@ test-java8:
 #  image: maven:3.6.3-openjdk-11-slim
 #  stage: verify
 #  script:
-#    - mvn clean verify sonar:sonar -Ptravis
+#    - mvn clean verify sonar:sonar -Pverify
 
 # TODO rewrite to gitlab
 #  addons:
@@ -81,13 +81,13 @@ test-java8:
 #  stage: verify
 #  script:
 #    - mavn clean install -Ptravis
-#    - mvn com.gavinmogan:codacy-maven-plugin:coverage -Ptravis
+#    - mvn com.gavinmogan:codacy-maven-plugin:coverage -Pverify
 
 #deploy-to-codcov:
 #  image: maven:3.6-jdk-8-slim
 #  stage: verify
 #  script:
-#    - mvn clean install -Ptravis
+#    - mvn clean install -Pverify
 #    - bash <(curl -s https://codecov.io/bash)
 
 #deploy-artifacts:
